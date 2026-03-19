@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import os
 from flask import Flask, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
@@ -158,3 +159,161 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+=======
+from flask import Flask, request, jsonify, render_template, redirect, session, send_from_directory
+import sqlite3, os
+from werkzeug.utils import secure_filename
+
+app = Flask(__name__)
+app.secret_key = "secret123"
+app.config['UPLOAD_FOLDER'] = 'uploads'
+
+# -------- DATABASE --------
+def init_db():
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+
+    c.execute('''CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY,
+        username TEXT,
+        password TEXT
+    )''')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS issues (
+        id INTEGER PRIMARY KEY,
+        category TEXT,
+        description TEXT,
+        lat REAL,
+        lng REAL,
+        image TEXT,
+        votes INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'pending'
+    )''')
+
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# -------- ROUTES --------
+@app.route('/')
+def home():
+    if "user" not in session:
+        return redirect("/login")
+    return render_template("index.html")
+
+@app.route('/login')
+def login():
+    return render_template("login.html")
+
+@app.route('/register')
+def register():
+    return render_template("register.html")
+
+@app.route('/do_login', methods=['POST'])
+def do_login():
+    u = request.form['username']
+    p = request.form['password']
+
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE username=? AND password=?", (u,p))
+    user = c.fetchone()
+    conn.close()
+
+    if user:
+        session["user"] = u
+        return redirect("/")
+    return "Login Failed"
+
+@app.route('/do_register', methods=['POST'])
+def do_register():
+    u = request.form['username']
+    p = request.form['password']
+
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    c.execute("INSERT INTO users (username,password) VALUES (?,?)",(u,p))
+    conn.commit()
+    conn.close()
+
+    return redirect("/login")
+
+# -------- ISSUE SYSTEM --------
+@app.route('/report', methods=['POST'])
+def report():
+    category = request.form['category']
+    description = request.form['description']
+    lat = request.form['lat']
+    lng = request.form['lng']
+
+    file = request.files['image']
+    filename = secure_filename(file.filename)
+    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    c.execute("INSERT INTO issues (category,description,lat,lng,image) VALUES (?,?,?,?,?)",
+              (category,description,lat,lng,filename))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"msg":"done"})
+
+@app.route('/issues')
+def issues():
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    c.execute("SELECT * FROM issues ORDER BY votes DESC")
+    data = c.fetchall()
+    conn.close()
+
+    result=[]
+    for i in data:
+        result.append({
+            "id":i[0],
+            "category":i[1],
+            "description":i[2],
+            "lat":i[3],
+            "lng":i[4],
+            "image":i[5],
+            "votes":i[6],
+            "status":i[7]
+        })
+    return jsonify(result)
+
+@app.route('/upvote/<int:id>', methods=['POST'])
+def upvote(id):
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    c.execute("UPDATE issues SET votes=votes+1 WHERE id=?", (id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"msg":"ok"})
+
+@app.route('/update/<int:id>', methods=['POST'])
+def update(id):
+    status = request.json['status']
+
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    c.execute("UPDATE issues SET status=? WHERE id=?", (status,id))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"msg":"updated"})
+
+@app.route('/admin')
+def admin():
+    return render_template("admin.html")
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+# -------- RUN --------
+if __name__ == "__main__":
+    if not os.path.exists("uploads"):
+        os.makedirs("uploads")
+    app.run(host="0.0.0.0", port=5000)
+>>>>>>> 20a623f (first commit)

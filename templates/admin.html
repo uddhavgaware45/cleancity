@@ -1,0 +1,31 @@
+<h1>Admin Panel</h1>
+<div id="data"></div>
+
+<script>
+async function load(){
+ let r = await fetch('/issues');
+ let d = await r.json();
+
+ let html="";
+ d.forEach(i=>{
+  html+=`
+  <div>
+    ${i.description} (${i.status})
+    <button onclick="update(${i.id})">Resolve</button>
+  </div>`;
+ });
+
+ document.getElementById("data").innerHTML=html;
+}
+
+async function update(id){
+ await fetch('/update/'+id,{
+  method:'POST',
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({status:'resolved'})
+ });
+ load();
+}
+
+load();
+</script>
