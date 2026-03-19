@@ -9,20 +9,12 @@ app = Flask(__name__)
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'uploads')
-
-# For Render (PostgreSQL) OR fallback to SQLite
-DATABASE_URL = os.environ.get('DATABASE_URL')
-
-if DATABASE_URL:
-    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'issues.db')
-
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL') or 'sqlite:///' + os.path.join(BASE_DIR, 'issues.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# ================ MODEL ===================
+# ================= MODEL ==================
 class Issue(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     category = db.Column(db.String(50))
@@ -33,9 +25,12 @@ class Issue(db.Model):
     upvotes = db.Column(db.Integer, default=0)
     status = db.Column(db.String(20), default="pending")
 
-# ============== INIT DB ==================
+# ================= INIT DB =================
+@app.before_first_request
+def create_tables():
+    db.create_all()
 
-# ============== ROUTES ====================
+# ================= ROUTES =================
 
 @app.route('/')
 def index():
@@ -57,8 +52,7 @@ def report():
             if file and file.filename != "":
                 filename = secure_filename(file.filename)
                 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(filepath)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
             issue = Issue(
                 category=category,
@@ -87,10 +81,8 @@ def uploaded_file(filename):
 @app.route('/api/issues')
 def get_issues():
     issues = Issue.query.all()
-
-    data = []
-    for i in issues:
-        data.append({
+    return jsonify([
+        {
             "id": i.id,
             "category": i.category,
             "description": i.description,
@@ -99,9 +91,8 @@ def get_issues():
             "lng": i.lng,
             "upvotes": i.upvotes,
             "status": i.status
-        })
-
-    return jsonify(data)
+        } for i in issues
+    ])
 
 # Upvote
 @app.route('/upvote/<int:id>', methods=['POST'])
@@ -111,7 +102,7 @@ def upvote(id):
     db.session.commit()
     return redirect(url_for('index'))
 
-# Optional: Change status (admin use)
+# Change status (optional)
 @app.route('/status/<int:id>/<new_status>')
 def change_status(id, new_status):
     issue = Issue.query.get_or_404(id)
@@ -119,8 +110,6 @@ def change_status(id, new_status):
     db.session.commit()
     return redirect(url_for('index'))
 
-# ============== MAIN ======================
-    if __name__ == "__main__":
-    import os
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+# ================= IMPORTANT =================
+# ❌ DO NOT ADD app.run()
+# Render uses gunicorn, so no main block needed
