@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CleanCity</title>
+
+    <link rel="stylesheet" href="/static/css/style.css">
+
+    <!-- Leaflet Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+</head>
+
+<body>
+
+<h1>🌆 CleanCity</h1>
+
+<form id="reportForm">
+    <select name="category">
+        <option value="Waste">Waste</option>
+        <option value="Water">Water</option>
+        <option value="Traffic">Traffic</option>
+        <option value="Safety">Safety</option>
+    </select>
+
+    <input type="text" name="description" placeholder="Describe issue" required>
+    <input type="file" name="image" required>
+
+    <input type="hidden" name="lat" id="lat">
+    <input type="hidden" name="lng" id="lng">
+
+    <button type="submit">Report</button>
+</form>
+
+<div id="map"></div>
+
+<h2>📍 Issues</h2>
+<div id="issues"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="/static/js/script.js"></script>
+
+</body>
+</html>
